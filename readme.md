@@ -7,7 +7,7 @@
     <img src="images/logo.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">Wooung-Frontend</h3>
+<h3 align="center">ZZip-Frontend</h3>
 
   <p align="center">
     Service for savings
@@ -18,8 +18,6 @@
 ## About The Project
 
 This is a Frontend Repository for service for smart spending.
-<br />
-There is still no decided name for service. We will choose a name soon!
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
