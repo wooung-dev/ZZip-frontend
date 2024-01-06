@@ -1,153 +1,103 @@
-import { StatusBar } from 'expo-status-bar';
-import { useState, useRef } from 'react';
-import { StyleSheet, View, Platform } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import * as MediaLibrary from 'expo-media-library';
-import { captureRef } from 'react-native-view-shot';
-import domtoimage from 'dom-to-image';
+import * as React from "react";
+import * as WebBrowser from "expo-web-browser";
+import * as Google from "expo-auth-session/providers/google";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { View, Text, Button } from "react-native";
+import { useEffect } from "react";
+import KakaoLogin from "./utils/KakaoLogin";
+import WebView from "react-native-webview";
 
-import Button from './components/Button';
-import ImageViewer from './components/ImageViewer';
-import CircleButton from './components/CircleButton';
-import IconButton from './components/IconButton';
-import EmojiPicker from './components/EmojiPicker';
-import EmojiList from './components/EmojiList';
-import EmojiSticker from './components/EmojiSticker';
+// 로그인 버튼 누르면 웹 브라우저가 열리고, 구글 로그인 페이지로 이동
+WebBrowser.maybeCompleteAuthSession();
+export default function login () {
 
-const PlaceholderImage = require('./assets/images/background-image.png');
+  const [isLogined, setIsLogined] = React.useState(false);
+  const [googleLogined, setGoogleLogined] = React.useState(false);
+  const [kakaoLogined, setKakaoLogined] = React.useState(false);
 
-// import * as SplashScreen from 'expo-splash-screen';
-// SplashScreen.preventAutoHideAsync();
-// setTimeout(SplashScreen.hideAsync, 30000000);
+  // 안드로이드, 웹 클라이언트 아이디를 사용하여 인증 요청 보냄.
+  // Google 인증 요청을 위한 훅 초기화
+  // promptAsync: 인증 요청 보냄.
+  const [userInfo, setUserInfo] = React.useState(null);
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId:
+      "764762593312-cakiv6uodn0vqjrlr9uk9pq19t7u2d19.apps.googleusercontent.com",
+    androidClientId:
+      "764762593312-6fkgt57438d5rhngkrgr9bucd84nt6jc.apps.googleusercontent.com",
+    iosClientId:
+      "764762593312-j4lu4mocv438rigg7lrjvhpsb0ntdkjg.apps.googleusercontent.com"
+  });
 
 
-export default function App() {
-
-  const imageRef = useRef();
-
-  const [status, requestPermission] = MediaLibrary.usePermissions();
-  const [pickedEmoji, setPickedEmoji] = useState(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [showAppOptions, setShowAppOptions] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
-
-  if (status === null) {
-    requestPermission();
-  }
-
-  const pickImageAsync = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setSelectedImage(result.assets[0].uri);
-      setShowAppOptions(true);
-      console.log(result);
+  // Google 로그인 처리하는 함수
+  const handleSignWithGoogle = async () => {
+    const user = await AsyncStorage.getItem("@user");
+    if (!user) {
+      if (response?.type === "success") {
+        // 인증 요청에 대한 응답이 성공이면, 토큰을 이용하여 유저 정보 가져오기.
+        await getGoogleUserInfo(response.authentication?.accessToken);
+      }
     } else {
-      alert('You did not select any image');
+      // 유저 정보가 이미 있을 시, 유저 정보를 가져오기.
+      setUserInfo(JSON.parse(user));
     }
   }
 
-  const onReset = () => {
-    setShowAppOptions(false);
-  }
-
-  const onAddSticker = () => {
-    setIsModalVisible(true);
-  }
-
-  const onModalClose = () => {
-    setIsModalVisible(false);
-  }
-
-  const onSaveImageAsync = async () => {
-    if (Platform.OS !== 'web') {
-      try {
-        const localUri = await captureRef(imageRef, {
-          height: 440,
-          quality: 1,
-        });
-  
-        await MediaLibrary.saveToLibraryAsync(localUri);
-        if (localUri) {
-          alert("Saved!");
+  // 토큰을 이용하여 유저 정보를 가져오는 함수
+  const getGoogleUserInfo = async (token) => {
+    if (!token) return;
+    try {
+      const response = await fetch(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        {
+          headers: { Authorization: `Bearer ${token}` },
         }
-      } catch (e) {
-        console.log(e);
-      }
-    } else {
-      try {
-        const dataUrl = await domtoimage.toJpeg(imageRef.current, {
-          quality: 0.95,
-          width: 320,
-          height: 440,
-        });
-
-        let link = document.createElement('a');
-        link.download = 'sticker-smash.jpeg';
-        link.href = dataUrl;
-        link.click();
-      } catch (e) {
-        console.log(e);
-      }
+      );
+      const userInfoResponse = await response.json();
+      // 유저 정보를 AsyncStorage에 저장, 상태업데이트
+      await AsyncStorage.setItem("@user", JSON.stringify(userInfoResponse));
+      setUserInfo(userInfoResponse);
+    } catch (e) {
+      console.log(e);
     }
   };
 
-  return (
-    <GestureHandlerRootView style={styles.container}>
-      <View style={styles.imageContainer}>
-        <View ref={imageRef} collapsable={false}>
-          <ImageViewer
-            placeholderImageSource={PlaceholderImage}
-            selectedImage={selectedImage} />
-          {pickedEmoji !== null ? <EmojiSticker imageSize={40} stickerSource={pickedEmoji} /> : null}
-        </View>
-      </View>
-      {showAppOptions ? (
-        <View style={styles.optionsContainer}>
-          <View style={styles.optionsRow}>
-            <IconButton icon="refresh" label="Reset" onPress={onReset} />
-            <CircleButton onPress={onAddSticker} />
-            <IconButton icon="save-alt" label="Save" onPress={onSaveImageAsync} />
-          </View>
-        </View>
-      ) : (
-        <View style={styles.footerContainer}>
-          <Button theme="primary" label="Choose a photo" onPress={pickImageAsync} />
-          <Button label="Use this photo" onPress={() => setShowAppOptions(true)}/>
-        </View>
-      )}
-      <EmojiPicker isVisible={isModalVisible} onClose={onModalClose}>
-        <EmojiList onSelect={setPickedEmoji} onCloseModal={onModalClose} />
-      </EmojiPicker>
-      <StatusBar style="light" />
-    </GestureHandlerRootView>
-  );
-}
+  const handleGoogleLogout = async () => {
+    await AsyncStorage.removeItem("@user");
+    setUserInfo(null);
+  };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#25292e',
-    alignItems: 'center',
-  },
-  imageContainer: {
-    flex: 1,
-    paddingTop: 58,
-  },
-  footerContainer: {
-    flex: 1 / 3,
-    alignItems: 'center',
-  },
-  optionsContainer: {
-    position: 'absolute',
-    bottom: 80,
-  },
-  optionsRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-});
+  // Google 인증 응답이 바뀔 때 마다 실행
+  useEffect(() => {
+    handleSignWithGoogle();
+  }, [response]);
+
+  // Kakao 인증 응답이 바뀔 때 마다 실행
+  useEffect(() => {}, [])
+
+  return (
+    <View style={{flex: 1, alignContent: "center"}}>
+      <Text>{JSON.stringify(userInfo, null, 2)}</Text>
+      <View>
+        { googleLogined ?
+          <Button
+            title="logout"
+            onPress={() => handleGoogleLogout()}
+          />
+          :
+          <Button
+            title="Sign in with Google"
+            disabled={!request}
+            onPress={() => {
+              promptAsync();
+            }}
+          />
+        }
+      </View>
+      <View>
+        <KakaoLogin />
+      </View>
+      <KakaoLogin/>
+    </View>
+  )
+}

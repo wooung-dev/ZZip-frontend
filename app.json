@@ -15,16 +15,34 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wooung.ZZip"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.wooung.ZZip"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "@react-native-seoul/kakao-login",
+        {
+          "kakaoAppKey": "63e05754c8bd9b6ebda6069c970230e3",
+          "overrideKakaoSDKVersion": "2.9.0",
+          "kotlinVersion": "1.5.10"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "139e3bae-659d-47a9-8f68-54348715da0c"
+      }
+    },
+    "scheme" : "ZZip"
   }
 }
