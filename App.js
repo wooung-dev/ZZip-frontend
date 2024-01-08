@@ -1,153 +1,127 @@
-import { StatusBar } from 'expo-status-bar';
-import { useState, useRef } from 'react';
-import { StyleSheet, View, Platform } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import * as MediaLibrary from 'expo-media-library';
-import { captureRef } from 'react-native-view-shot';
-import domtoimage from 'dom-to-image';
+import { useEffect } from "react";
+import { View, Text, Pressable } from "react-native";
 
-import Button from './components/Button';
-import ImageViewer from './components/ImageViewer';
-import CircleButton from './components/CircleButton';
-import IconButton from './components/IconButton';
-import EmojiPicker from './components/EmojiPicker';
-import EmojiList from './components/EmojiList';
-import EmojiSticker from './components/EmojiSticker';
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
 
-const PlaceholderImage = require('./assets/images/background-image.png');
-
-// import * as SplashScreen from 'expo-splash-screen';
-// SplashScreen.preventAutoHideAsync();
-// setTimeout(SplashScreen.hideAsync, 30000000);
-
+WebBrowser.maybeCompleteAuthSession();
 
 export default function App() {
+  const postAppleSignin = async (identityToken, fullName) => {
+    const res = await fetch(
+      `${process.env.EXPO_PUBLIC_API_ENDPOINT}/signin/apple`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          identityToken,
+          fullName,
+        }),
+      }
+    );
+    console.log(res);
+  };
 
-  const imageRef = useRef();
+  const postNaverSignin = async (code) => {
+    const res = await fetch(
+      `${process.env.EXPO_PUBLIC_API_ENDPOINT}/signin/naver`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          code,
+        }),
+      }
+    );
+    console.log(res);
+  };
 
-  const [status, requestPermission] = MediaLibrary.usePermissions();
-  const [pickedEmoji, setPickedEmoji] = useState(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [showAppOptions, setShowAppOptions] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
-
-  if (status === null) {
-    requestPermission();
-  }
-
-  const pickImageAsync = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setSelectedImage(result.assets[0].uri);
-      setShowAppOptions(true);
-      console.log(result);
-    } else {
-      alert('You did not select any image');
+  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+    {
+      responseType: "code",
+      scopes: [],
+      clientId: process.env.EXPO_PUBLIC_NAVER_SIGNIN_CLIENT_ID,
+      redirectUri: AuthSession.makeRedirectUri({
+        scheme: "zzip",
+        preferLocalhost: true,
+      }),
+    },
+    {
+      authorizationEndpoint: "https://nid.naver.com/oauth2.0/authorize",
+      tokenEndpoint: "https://nid.naver.com/oauth2.0/token",
     }
-  }
+  );
 
-  const onReset = () => {
-    setShowAppOptions(false);
-  }
+  useEffect(() => {
+    if (response && response.type === "success") {
+      postNaverSignin(response.params.code);
+    }
+  }, [response]);
 
-  const onAddSticker = () => {
-    setIsModalVisible(true);
-  }
-
-  const onModalClose = () => {
-    setIsModalVisible(false);
-  }
-
-  const onSaveImageAsync = async () => {
-    if (Platform.OS !== 'web') {
-      try {
-        const localUri = await captureRef(imageRef, {
-          height: 440,
-          quality: 1,
-        });
-  
-        await MediaLibrary.saveToLibraryAsync(localUri);
-        if (localUri) {
-          alert("Saved!");
-        }
-      } catch (e) {
-        console.log(e);
-      }
-    } else {
-      try {
-        const dataUrl = await domtoimage.toJpeg(imageRef.current, {
-          quality: 0.95,
-          width: 320,
-          height: 440,
-        });
-
-        let link = document.createElement('a');
-        link.download = 'sticker-smash.jpeg';
-        link.href = dataUrl;
-        link.click();
-      } catch (e) {
-        console.log(e);
-      }
+  const naverLogin = async () => {
+    try {
+      promptAsync();
+    } catch (e) {
+      console.log("naver error");
     }
   };
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <View style={styles.imageContainer}>
-        <View ref={imageRef} collapsable={false}>
-          <ImageViewer
-            placeholderImageSource={PlaceholderImage}
-            selectedImage={selectedImage} />
-          {pickedEmoji !== null ? <EmojiSticker imageSize={40} stickerSource={pickedEmoji} /> : null}
-        </View>
-      </View>
-      {showAppOptions ? (
-        <View style={styles.optionsContainer}>
-          <View style={styles.optionsRow}>
-            <IconButton icon="refresh" label="Reset" onPress={onReset} />
-            <CircleButton onPress={onAddSticker} />
-            <IconButton icon="save-alt" label="Save" onPress={onSaveImageAsync} />
-          </View>
-        </View>
-      ) : (
-        <View style={styles.footerContainer}>
-          <Button theme="primary" label="Choose a photo" onPress={pickImageAsync} />
-          <Button label="Use this photo" onPress={() => setShowAppOptions(true)}/>
-        </View>
-      )}
-      <EmojiPicker isVisible={isModalVisible} onClose={onModalClose}>
-        <EmojiList onSelect={setPickedEmoji} onCloseModal={onModalClose} />
-      </EmojiPicker>
-      <StatusBar style="light" />
-    </GestureHandlerRootView>
+    <View
+      style={{ flex: 1, padding: 20, paddingTop: 40, justifyContent: "start" }}
+    >
+      <AppleAuthentication.AppleAuthenticationButton
+        buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+        cornerRadius={5}
+        style={{
+          width: 40,
+          height: 40,
+          borderColor: "black",
+          borderWidth: 1,
+          borderRadius: 5,
+          marginBottom: 12,
+        }}
+        onPress={async () => {
+          try {
+            const credential = await AppleAuthentication.signInAsync({
+              requestedScopes: [
+                AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                AppleAuthentication.AppleAuthenticationScope.EMAIL,
+              ],
+            });
+
+            await postAppleSignin(
+              credential.identityToken,
+              res.familyName +
+                (res.middleName ? ` ${res.middleName} ` : " ") +
+                res.givenName
+            );
+          } catch (e) {
+            console.log("error");
+            if (e.code === "ERR_REQUEST_CANCELED") {
+              // handle that the user canceled the sign-in flow
+            } else {
+              // handle other errors
+            }
+          }
+        }}
+      />
+
+      <Pressable
+        disabled={!request}
+        onPress={naverLogin}
+        color="green"
+        style={{
+          width: "50%",
+          padding: 8,
+          borderColor: "green",
+          borderWidth: 1,
+          borderRadius: 5,
+          textAlign: "left",
+        }}
+      >
+        <Text style={{ color: "green" }}>Naver Signin</Text>
+      </Pressable>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#25292e',
-    alignItems: 'center',
-  },
-  imageContainer: {
-    flex: 1,
-    paddingTop: 58,
-  },
-  footerContainer: {
-    flex: 1 / 3,
-    alignItems: 'center',
-  },
-  optionsContainer: {
-    position: 'absolute',
-    bottom: 80,
-  },
-  optionsRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-});
