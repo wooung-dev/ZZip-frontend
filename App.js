@@ -92,12 +92,12 @@ export default function App() {
 
             await postAppleSignin(
               credential.identityToken,
-              res.familyName +
-                (res.middleName ? ` ${res.middleName} ` : " ") +
-                res.givenName
+              credential.fullName.familyName +
+                (credential.fullName.middleName ? ` ${credential.fullName.middleName} ` : " ") +
+                credential.fullName.givenName
             );
           } catch (e) {
-            console.log("error");
+            console.log("error", e);
             if (e.code === "ERR_REQUEST_CANCELED") {
               // handle that the user canceled the sign-in flow
             } else {
